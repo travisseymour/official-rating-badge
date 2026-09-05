@@ -26,7 +26,7 @@ jobs:
         run: dotnet publish --configuration Release --output ./build
 
       - name: Install jprm
-        run: pip install jellyfin-plugin-repo-manager
+        run: pip install git+https://github.com/jellyfin/jellyfin-plugin-repository-manager.git
 
       - name: Package plugin
         run: |

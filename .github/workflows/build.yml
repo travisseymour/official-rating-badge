@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -25,25 +27,56 @@ jobs:
       - name: Build
         run: dotnet publish --configuration Release --output ./build
 
-      - name: Install jprm
-        run: pip install git+https://github.com/jellyfin/jellyfin-plugin-repository-manager.git
-
       - name: Package plugin
         run: |
-          jprm plugin build . --output ./dist
+          mkdir -p dist
+          cd build
+          zip -r ../dist/officialratingbadge_1.0.0.0.zip .
+          cd ..
 
       - name: Create manifest
         run: |
-          # Get the version from the tag or use 1.0.0.0
-          VERSION=${GITHUB_REF_NAME#v}
-          if [ -z "$VERSION" ] || [ "$VERSION" = "$GITHUB_REF_NAME" ]; then
+          REPO="${{ github.repository }}"
+          TAG="${{ github.ref_name }}"
+
+          # Use tag version or default
+          VERSION="${TAG#v}"
+          if [ -z "$VERSION" ] || [ "$VERSION" = "$TAG" ]; then
             VERSION="1.0.0.0"
           fi
 
-          # Create repo.json and rename to manifest.json
-          jprm repo init ./repo
-          jprm repo add ./repo/manifest.json ./dist/*.zip
-          mv ./repo/manifest.json ./manifest.json
+          cat > manifest.json << 'MANIFEST_EOF'
+          [
+            {
+              "guid": "15d31f10-8471-4f42-92b0-97b24902fc1e",
+              "name": "Official Rating Badge",
+              "overview": "Draws OfficialRating (PG-13/R/TV-MA) as a badge on poster images.",
+              "description": "Server-side middleware that intercepts poster image responses and draws the item's OfficialRating as a small corner badge. No client-side script injection, no external image service — pure ASP.NET Core middleware running inside your own Jellyfin server.",
+              "owner": "travisseymour",
+              "category": "General",
+              "versions": [
+                {
+                  "version": "1.0.0.0",
+                  "changelog": "Initial release: draws OfficialRating badge on Primary (poster) images.",
+                  "targetAbi": "10.11.0.0",
+                  "sourceUrl": "https://github.com/REPO_PLACEHOLDER/releases/download/TAG_PLACEHOLDER/officialratingbadge_1.0.0.0.zip",
+                  "checksum": "CHECKSUM_PLACEHOLDER",
+                  "timestamp": "TIMESTAMP_PLACEHOLDER"
+                }
+              ]
+            }
+          ]
+          MANIFEST_EOF
+
+          # Calculate checksum
+          CHECKSUM=$(md5sum dist/officialratingbadge_1.0.0.0.zip | awk '{print $1}')
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          # Replace placeholders
+          sed -i "s|REPO_PLACEHOLDER|${REPO}|g" manifest.json
+          sed -i "s|TAG_PLACEHOLDER|${TAG}|g" manifest.json
+          sed -i "s|CHECKSUM_PLACEHOLDER|${CHECKSUM}|g" manifest.json
+          sed -i "s|TIMESTAMP_PLACEHOLDER|${TIMESTAMP}|g" manifest.json
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -64,21 +97,11 @@ jobs:
       - name: Update manifest in repo
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          # Update manifest.json with the actual GitHub release URL
-          REPO="${{ github.repository }}"
-          TAG="${{ github.ref_name }}"
-          ZIP_NAME=$(ls dist/*.zip | xargs -n1 basename)
-
-          # Replace the local path with the GitHub release URL
-          sed -i "s|dist/${ZIP_NAME}|https://github.com/${REPO}/releases/download/${TAG}/${ZIP_NAME}|g" manifest.json
-
-          # Configure git
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Commit and push manifest.json to main
           git fetch origin main
           git checkout main
           git add manifest.json
-          git commit -m "Update manifest.json for ${TAG}" || echo "No changes to commit"
+          git commit -m "Update manifest.json for ${{ github.ref_name }}" || echo "No changes to commit"
           git push origin main

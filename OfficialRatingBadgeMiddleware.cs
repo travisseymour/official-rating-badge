@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
 namespace Jellyfin.Plugin.OfficialRatingBadge
@@ -28,39 +29,56 @@ namespace Jellyfin.Plugin.OfficialRatingBadge
 
         private readonly RequestDelegate _next;
         private readonly ILibraryManager _libraryManager;
+        private readonly ILogger<OfficialRatingBadgeMiddleware> _logger;
 
-        public OfficialRatingBadgeMiddleware(RequestDelegate next, ILibraryManager libraryManager)
+        public OfficialRatingBadgeMiddleware(RequestDelegate next, ILibraryManager libraryManager, ILogger<OfficialRatingBadgeMiddleware> logger)
         {
             _next = next;
             _libraryManager = libraryManager;
+            _logger = logger;
+            _logger.LogInformation("OfficialRatingBadgeMiddleware initialized");
         }
 
         public async Task InvokeAsync(HttpContext context)
         {
-            if (Plugin.Instance?.Configuration.Enabled != true)
+            var path = context.Request.Path.Value ?? string.Empty;
+
+            if (Plugin.Instance == null)
+            {
+                _logger.LogWarning("OfficialRatingBadge: Plugin.Instance is null");
+                await _next(context);
+                return;
+            }
+
+            if (!Plugin.Instance.Configuration.Enabled)
             {
                 await _next(context);
                 return;
             }
 
-            var match = ImageRouteRegex.Match(context.Request.Path.Value ?? string.Empty);
+            var match = ImageRouteRegex.Match(path);
             if (!match.Success)
             {
                 await _next(context);
                 return;
             }
 
+            _logger.LogDebug("OfficialRatingBadge: Matched path {Path}", path);
+
             if (!Guid.TryParse(match.Groups["itemId"].Value, out var itemId))
             {
+                _logger.LogWarning("OfficialRatingBadge: Failed to parse itemId from {Path}", path);
                 await _next(context);
                 return;
             }
 
             var item = _libraryManager.GetItemById(itemId);
             var rating = item?.OfficialRating;
+
+            _logger.LogDebug("OfficialRatingBadge: Item {ItemId} has rating '{Rating}'", itemId, rating ?? "(null)");
+
             if (string.IsNullOrWhiteSpace(rating))
             {
-                // Nothing to draw — pass the original image straight through.
                 await _next(context);
                 return;
             }
@@ -92,12 +110,13 @@ namespace Jellyfin.Plugin.OfficialRatingBadge
             byte[] badged;
             try
             {
+                _logger.LogInformation("OfficialRatingBadge: Drawing badge '{Rating}' on item {ItemId}", rating, itemId);
                 badged = DrawBadge(buffer.ToArray(), rating!);
+                _logger.LogDebug("OfficialRatingBadge: Badge drawn successfully, {Bytes} bytes", badged.Length);
             }
-            catch
+            catch (Exception ex)
             {
-                // If anything goes wrong decoding/re-encoding, fail safe —
-                // serve the original poster rather than a broken image.
+                _logger.LogError(ex, "OfficialRatingBadge: Failed to draw badge");
                 buffer.Seek(0, SeekOrigin.Begin);
                 await buffer.CopyToAsync(originalBody);
                 return;

@@ -97,11 +97,19 @@ jobs:
       - name: Update manifest in repo
         if: startsWith(github.ref, 'refs/tags/')
         run: |
+          # Save manifest to temp location
+          cp manifest.json /tmp/manifest.json
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+          # Clean working directory and checkout main
+          git clean -fd
           git fetch origin main
           git checkout main
+
+          # Restore manifest and commit
+          cp /tmp/manifest.json manifest.json
           git add manifest.json
           git commit -m "Update manifest.json for ${{ github.ref_name }}" || echo "No changes to commit"
           git push origin main

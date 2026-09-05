@@ -122,10 +122,15 @@ namespace Jellyfin.Plugin.OfficialRatingBadge
             // Badge sizing scales with the poster so it looks consistent
             // across different poster resolutions.
             var fontSize = original.Width * 0.055f;
-            using var font = new SKFont(SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright), fontSize);
-            using var textPaint = new SKPaint { Color = SKColors.White, IsAntialias = true };
+            using var textPaint = new SKPaint
+            {
+                Color = SKColors.White,
+                IsAntialias = true,
+                TextSize = fontSize,
+                Typeface = SKTypeface.FromFamilyName("Arial", SKFontStyleWeight.Bold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
+            };
 
-            var textWidth = font.MeasureText(rating);
+            var textWidth = textPaint.MeasureText(rating);
             var paddingX = fontSize * 0.5f;
             var paddingY = fontSize * 0.35f;
             var badgeWidth = textWidth + paddingX * 2;
@@ -149,7 +154,6 @@ namespace Jellyfin.Plugin.OfficialRatingBadge
                 rating,
                 badgeRect.Left + paddingX,
                 badgeRect.Bottom - paddingY,
-                font,
                 textPaint);
 
             using var image = surface.Snapshot();

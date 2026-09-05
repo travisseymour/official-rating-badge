@@ -1,0 +1,19 @@
+---
+name: "Official Rating Badge"
+guid: "15d31f10-8471-4f42-92b0-97b24902fc1e" # must match Plugin.cs Id exactly
+version: "1.0.0.0"
+targetAbi: "10.11.0.0" # lowest Jellyfin server version this build supports
+framework: "net9.0"
+overview: "Draws OfficialRating (PG-13/R/TV-MA) as a badge on poster images."
+description: >
+  Server-side middleware that intercepts poster image responses and draws
+  the item's OfficialRating as a small corner badge. No client-side script
+  injection, no external image service — pure ASP.NET Core middleware
+  running inside your own Jellyfin server.
+category: "General"
+owner: "travisseymour" # change this
+artifacts:
+  - "OfficialRatingBadge.dll"
+changelog: |
+  ## v1.0.0.0
+  - Initial release: draws OfficialRating badge on Primary (poster) images.

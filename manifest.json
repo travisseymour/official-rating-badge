@@ -1,0 +1,20 @@
+[
+  {
+    "guid": "15d31f10-8471-4f42-92b0-97b24902fc1e",
+    "name": "Official Rating Badge",
+    "overview": "Draws OfficialRating (PG-13/R/TV-MA) as a badge on poster images.",
+    "description": "Server-side middleware that intercepts poster image responses and draws the item's OfficialRating as a small corner badge. No client-side script injection, no external image service — pure ASP.NET Core middleware running inside your own Jellyfin server.",
+    "owner": "travisseymour",
+    "category": "General",
+    "versions": [
+      {
+        "version": "1.0.0.0",
+        "changelog": "Initial release: draws OfficialRating badge on Primary (poster) images.",
+        "targetAbi": "10.11.0.0",
+        "sourceUrl": "https://github.com/travisseymour/official-rating-badge/releases/download/v1.0.3/officialratingbadge_1.0.0.0.zip",
+        "checksum": "a98efe5dea986826cc8aa67f9ae95416",
+        "timestamp": "2026-09-05T04:57:33Z"
+      }
+    ]
+  }
+]

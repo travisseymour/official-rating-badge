@@ -1,5 +1,8 @@
 #!/bin/bash
 # Auto-increment patch version and push a new release tag
+# assumes you've already done something like this:
+# git pull origin main --rebase && git push origin main
+
 
 set -e
 

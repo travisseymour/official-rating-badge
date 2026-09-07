@@ -23,8 +23,12 @@ namespace Jellyfin.Plugin.OfficialRatingBadge
     /// </summary>
     public class OfficialRatingBadgeMiddleware
     {
+        // Match multiple URL patterns used by different clients:
+        // - /Items/{id}/Images/Primary (standard)
+        // - /Items/{id}/Images/Primary/0 (with index)
+        // - /emby/Items/{id}/Images/Primary (Emby compatibility mode)
         private static readonly Regex ImageRouteRegex =
-            new(@"^/Items/(?<itemId>[0-9a-fA-F-]{32,36})/Images/Primary",
+            new(@"^(?:/emby)?/Items/(?<itemId>[0-9a-fA-F-]{32,36})/Images/Primary",
                 RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         private readonly RequestDelegate _next;
@@ -59,11 +63,18 @@ namespace Jellyfin.Plugin.OfficialRatingBadge
             var match = ImageRouteRegex.Match(path);
             if (!match.Success)
             {
+                // Log unmatched image requests to help diagnose client-specific URL patterns
+                if (path.Contains("/Images/Primary", StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning("OfficialRatingBadge: Unmatched Primary image path: {Path}", path);
+                }
+
                 await _next(context);
                 return;
             }
 
-            _logger.LogDebug("OfficialRatingBadge: Matched path {Path}", path);
+            var userAgent = context.Request.Headers.UserAgent.ToString();
+            _logger.LogDebug("OfficialRatingBadge: Matched path {Path}, User-Agent: {UserAgent}", path, userAgent);
 
             if (!Guid.TryParse(match.Groups["itemId"].Value, out var itemId))
             {
@@ -122,6 +133,8 @@ namespace Jellyfin.Plugin.OfficialRatingBadge
                 return;
             }
 
+            // Ensure Content-Type matches the re-encoded format (always JPEG)
+            context.Response.ContentType = "image/jpeg";
             context.Response.ContentLength = badged.Length;
             await originalBody.WriteAsync(badged);
         }
